@@ -184,6 +184,11 @@ def measure_data(port, filename, duration):
     else:
         output_handle = tempfile.TemporaryFile("w+")
 
+    if duration:
+        print(f"Logging data for {duration} seconds. Press Ctrl+C to stop early.")
+    else:
+        print(f"Starting data acquisition. Press Ctrl+C to stop.")
+
     print("# Device: " + korad.connect(), file=output_handle)
     print("# Timestamp Voltage Current", file=output_handle)
     while not terminate_measurement:
