@@ -198,7 +198,7 @@ def measure_data(port, filename, duration):
         if voltage is not None and current is not None:
             print(f"{ts:.3f} {voltage:5.2f} {current:5.3f}", file=output_handle)
         elif voltage is not None:
-            print(f"{ts:.3f}   {volvoltage:5.2f}   NaN", file=output_handle)
+            print(f"{ts:.3f}   {voltage:5.2f}   NaN", file=output_handle)
         elif current is not None:
             print(f"{ts:.3f}   NaN {current:5.3f}", file=output_handle)
         else:
