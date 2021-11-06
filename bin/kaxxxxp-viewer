@@ -9,7 +9,8 @@
 
 DESCRIPTION
 
-kaxxxxp-viewer logs voltage and current readings provided by a KAxxxxP power supply.
+kaxxxxp-viewer logs voltage and current readings provided by a KAxxxxP power supply
+with serial/USB interface, sold under brands such as Korad or RND Lab.
 Measurements can be taken directly (by specifying <measurement duration> in seconds)
 or loaded from a logfile using --load <file>. Data can be plotted or aggregated on stdout.
 
@@ -130,6 +131,8 @@ class KA320:
         if exact:
             return self.reader.get_expected_line()
         return self.reader.get_line()
+
+    # See <https://sigrok.org/wiki/Korad_KAxxxxP_series> for supported commands
 
     def connect(self):
         return self.rw(b"*IDN?", 16)
