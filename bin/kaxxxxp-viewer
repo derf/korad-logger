@@ -245,9 +245,20 @@ def measure_data(
     ovp=False,
     max_voltage=None,
     max_current=None,
+    voltage_range=(None, None, None),
+    current_range=(None, None, None),
     on_off=False,
 ):
     global terminate_measurement
+
+    voltage_start, voltage_stop, voltage_step = voltage_range
+    current_start, current_stop, current_step = current_range
+    last_range_step = 0
+
+    if voltage_start is not None:
+        max_voltage = voltage_start
+    if current_start is not None:
+        max_current = current_start
 
     signal.signal(signal.SIGINT, graceful_exit)
     signal.signal(signal.SIGTERM, graceful_exit)
@@ -261,16 +272,16 @@ def measure_data(
     else:
         output_handle = tempfile.TemporaryFile("w+")
 
-    if max_voltage or max_current:
+    if max_voltage is not None or max_current is not None:
         # turn off output before setting current and voltage limits
         print("Turning off outputs")
         korad.set_output(False)
 
-    if max_voltage:
+    if max_voltage is not None:
         print(f"Setting voltage limit to {max_voltage:5.2f} V")
         korad.set_max_voltage(max_voltage)
 
-    if max_current:
+    if max_current is not None:
         print(f"Setting current limit to {max_current:5.3f} A")
         korad.set_max_current(max_current)
 
@@ -282,7 +293,7 @@ def measure_data(
         print("Enabling over-current protection")
         korad.ocp(True)
 
-    if max_voltage or max_current or on_off:
+    if max_voltage is not None or max_current is not None or on_off:
         print("Turning on outputs")
         korad.set_output(True)
 
@@ -306,6 +317,23 @@ def measure_data(
         else:
             print(f"{ts:.3f}   NaN   NaN", file=output_handle)
         time.sleep(0.1)
+
+        if int(ts - start_ts) > last_range_step:
+            last_range_step = int(ts - start_ts)
+            if voltage_step:
+                max_voltage = voltage_start + last_range_step * voltage_step
+                if (voltage_step > 0 and max_voltage <= voltage_stop) or (
+                    voltage_step < 0 and max_voltage >= voltage_stop
+                ):
+                    print(f"Setting voltage limit to {max_voltage:5.2f} V")
+                    korad.set_max_voltage(max_voltage)
+            if current_step:
+                max_current = current_start + last_range_step * current_step
+                if (current_step > 0 and max_current <= current_stop) or (
+                    current_step < 0 and max_current >= current_stop
+                ):
+                    print(f"Setting current limit to {max_current:5.3f} A")
+                    korad.set_max_current(max_current)
 
         if duration and ts - start_ts > duration:
             terminate_measurement = True
@@ -403,6 +431,32 @@ def parse_data(log_data, skip=None, limit=None):
     return data
 
 
+def parse_range(range_spec):
+    if range_spec is None:
+        return None, None, None
+
+    start, stop, step = list(map(float, range_spec.split()))
+
+    if start < 0 or stop < 0:
+        print(
+            f"Range specification '{range_spec}' is invalid: start and stop must be positive",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if step == 0:
+        print(
+            f"Range specification '{range_spec}' is invalid: step must be ≠ 0",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if (start < stop and step < 0) or (start > stop and step > 0):
+        step = -step
+
+    return start, stop, step
+
+
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
@@ -431,12 +485,25 @@ def main():
     parser.add_argument(
         "--voltage-limit",
         type=float,
+        metavar="VOLTAGE",
         help="Set voltage limit",
+    )
+    parser.add_argument(
+        "--voltage-range",
+        type=str,
+        metavar="START STOP STEP",
+        help="Vary voltage limit from START to STOP over the course of the measurement. Adjust by STEP V per second.",
     )
     parser.add_argument(
         "--current-limit",
         type=float,
         help="Set current limit",
+    )
+    parser.add_argument(
+        "--current-range",
+        type=str,
+        metavar="START STOP STEP",
+        help="Vary current limit from START to STOP over the course of the measurement. Adjust by STEP A per second.",
     )
     parser.add_argument(
         "--on-off",
@@ -475,6 +542,9 @@ def main():
         print("Either --load or duration must be specified", file=sys.stderr)
         sys.exit(1)
 
+    current_range = parse_range(args.current_range)
+    voltage_range = parse_range(args.voltage_range)
+
     if args.load:
         if args.load.endswith(".xz"):
             import lzma
@@ -494,6 +564,8 @@ def main():
             ovp=args.over_voltage_protection,
             max_voltage=args.voltage_limit,
             max_current=args.current_limit,
+            voltage_range=voltage_range,
+            current_range=current_range,
             on_off=args.on_off,
         )
 
