@@ -105,7 +105,7 @@ class SerialReader(serial.threaded.Protocol):
 
 
 class KA320:
-    def __init__(self, port):
+    def __init__(self, port, channel=1):
         self.ser = serial.serial_for_url(port, do_not_open=True)
         self.ser.baudrate = 9600
         self.ser.parity = "N"
@@ -119,6 +119,8 @@ class KA320:
                 "Could not open serial port {}: {}\n".format(self.ser.name, e)
             )
             sys.exit(1)
+
+        self.channel = channel
 
         self.reader = SerialReader()
         self.worker = serial.threaded.ReaderThread(self.ser, self.reader)
@@ -138,20 +140,20 @@ class KA320:
         return self.rw(b"*IDN?", 16)
 
     def get_max_voltage(self):
-        return float(self.rw(b"VSET1?", 5))
+        return float(self.rw(f"VSET{self.channel:d}?".encode(), 5))
 
     def get_max_current(self):
-        return float(self.rw(b"ISET1?", 5, True))
+        return float(self.rw(f"ISET{self.channel:d}?".encode(), 5, True))
 
     def get_voltage(self):
         try:
-            return float(self.rw(b"VOUT1?", 5))
+            return float(self.rw(f"VOUT{self.channel:d}?".encode(), 5))
         except TypeError:
             return None
 
     def get_current(self):
         try:
-            return float(self.rw(b"IOUT1?", 5, True))
+            return float(self.rw(f"IOUT{self.channel:d}?".encode(), 5, True))
         except TypeError:
             return None
 
@@ -172,13 +174,13 @@ def graceful_exit(sig, frame):
     terminate_measurement = True
 
 
-def measure_data(port, filename, duration):
+def measure_data(port, filename, duration, channel=1):
     global terminate_measurement
 
     signal.signal(signal.SIGINT, graceful_exit)
     signal.signal(signal.SIGTERM, graceful_exit)
     signal.signal(signal.SIGQUIT, graceful_exit)
-    korad = KA320(port)
+    korad = KA320(port, channel)
 
     start_ts = time.time()
 
@@ -312,6 +314,7 @@ def main():
         default="/dev/ttyACM0",
         help="Set PSU serial port",
     )
+    parser.add_argument("--channel", type=int, default=1, help="Measurement Channel")
     parser.add_argument(
         "--save", metavar="FILE", type=str, help="Save measurement data in FILE"
     )
@@ -354,7 +357,9 @@ def main():
             with open(args.load, "r") as f:
                 log_data = f.read()
     else:
-        log_data = measure_data(args.port, args.save, args.duration)
+        log_data = measure_data(
+            args.port, args.save, args.duration, channel=args.channel
+        )
 
     data = parse_data(log_data, skip=args.skip, limit=args.limit)
 
