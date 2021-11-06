@@ -193,6 +193,14 @@ class KA320:
         time.sleep(0.1)
         # assert self.get_status().over_current_protection_enabled == enable
 
+    def set_max_voltage(self, max_voltage):
+        self.ser.write(f"VSET{self.channel:d}:{max_voltage:05.2f}".encode())
+        time.sleep(0.1)
+
+    def set_max_current(self, max_current):
+        self.ser.write(f"ISET{self.channel:d}:{max_current:05.3f}".encode())
+        time.sleep(0.1)
+
     def get_max_voltage(self):
         return float(self.rw(f"VSET{self.channel:d}?".encode(), 5, True))
 
@@ -228,7 +236,17 @@ def graceful_exit(sig, frame):
     terminate_measurement = True
 
 
-def measure_data(port, filename, duration, channel=1, ocp=False, ovp=False):
+def measure_data(
+    port,
+    filename,
+    duration,
+    channel=1,
+    ocp=False,
+    ovp=False,
+    max_voltage=None,
+    max_current=None,
+    on_off=False,
+):
     global terminate_measurement
 
     signal.signal(signal.SIGINT, graceful_exit)
@@ -243,6 +261,19 @@ def measure_data(port, filename, duration, channel=1, ocp=False, ovp=False):
     else:
         output_handle = tempfile.TemporaryFile("w+")
 
+    if max_voltage or max_current:
+        # turn off output before setting current and voltage limits
+        print("Turning off outputs")
+        korad.set_output(False)
+
+    if max_voltage:
+        print(f"Setting voltage limit to {max_voltage:5.2f} V")
+        korad.set_max_voltage(max_voltage)
+
+    if max_current:
+        print(f"Setting current limit to {max_current:5.3f} A")
+        korad.set_max_current(max_current)
+
     if ovp:
         print("Enabling over-voltage protection")
         korad.ovp(True)
@@ -250,6 +281,10 @@ def measure_data(port, filename, duration, channel=1, ocp=False, ovp=False):
     if ocp:
         print("Enabling over-current protection")
         korad.ocp(True)
+
+    if max_voltage or max_current or on_off:
+        print("Turning on outputs")
+        korad.set_output(True)
 
     if duration:
         print(f"Logging data for {duration} seconds. Press Ctrl+C to stop early.")
@@ -274,6 +309,10 @@ def measure_data(port, filename, duration, channel=1, ocp=False, ovp=False):
 
         if duration and ts - start_ts > duration:
             terminate_measurement = True
+
+    if on_off:
+        print("Turning off outputs")
+        korad.set_output(False)
 
     korad.disconnect()
 
@@ -390,6 +429,21 @@ def main():
         help="Enable over-voltage protection",
     )
     parser.add_argument(
+        "--voltage-limit",
+        type=float,
+        help="Set voltage limit",
+    )
+    parser.add_argument(
+        "--current-limit",
+        type=float,
+        help="Set current limit",
+    )
+    parser.add_argument(
+        "--on-off",
+        action="store_true",
+        help="Enable output after starting the measurement; disable it after stopping it",
+    )
+    parser.add_argument(
         "--save", metavar="FILE", type=str, help="Save measurement data in FILE"
     )
     parser.add_argument(
@@ -438,6 +492,9 @@ def main():
             channel=args.channel,
             ocp=args.over_current_protection,
             ovp=args.over_voltage_protection,
+            max_voltage=args.voltage_limit,
+            max_current=args.current_limit,
+            on_off=args.on_off,
         )
 
     data = parse_data(log_data, skip=args.skip, limit=args.limit)
