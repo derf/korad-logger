@@ -364,6 +364,7 @@ def plot_data(data, mode):
             markersize=1,
         )
         plt.legend(handles=[datahandle, meanhandle])
+        plt.xlabel("Time [s]")
         plt.ylabel("Voltage [V]")
 
     elif mode == "I":
@@ -376,6 +377,7 @@ def plot_data(data, mode):
             markersize=1,
         )
         plt.legend(handles=[datahandle, meanhandle])
+        plt.xlabel("Time [s]")
         plt.ylabel("Current [A]")
 
     elif mode == "P":
@@ -390,6 +392,27 @@ def plot_data(data, mode):
             markersize=1,
         )
         plt.legend(handles=[datahandle, meanhandle])
+        plt.xlabel("Time [s]")
+        plt.ylabel("Power [W]")
+
+    elif mode == "UI":
+        plt.plot(data[:, 1], data[:, 2], "bs", markersize=1)
+        plt.xlabel("Voltage [V]")
+        plt.ylabel("Current [A]")
+
+    elif mode == "UP":
+        plt.plot(data[:, 1], data[:, 1] * data[:, 2], "bs", markersize=1)
+        plt.xlabel("Voltage [V]")
+        plt.ylabel("Power [W]")
+
+    elif mode == "IU":
+        plt.plot(data[:, 2], data[:, 1], "bs", markersize=1)
+        plt.xlabel("Current [A]")
+        plt.ylabel("Voltage [V]")
+
+    elif mode == "IP":
+        plt.plot(data[:, 2], data[:, 1] * data[:, 2], "bs", markersize=1)
+        plt.xlabel("Current [A]")
         plt.ylabel("Power [W]")
 
     plt.show()
@@ -529,8 +552,8 @@ def main():
     parser.add_argument(
         "--plot",
         metavar="UNIT",
-        choices=["U", "I", "P"],
-        help="Plot voltage / current / power over time",
+        choices=["U", "I", "P", "UI", "UP", "IU", "IP"],
+        help="Plot voltage / current / power over time or voltage vs current / current vs voltage",
     )
     parser.add_argument(
         "duration", type=int, nargs="?", help="Measurement duration in seconds"
