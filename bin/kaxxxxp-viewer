@@ -67,12 +67,14 @@ def running_mean(x: np.ndarray, N: int) -> np.ndarray:
 class SerialReader(serial.threaded.Protocol):
     def __init__(self):
         self.remaining_chars = 0
+        self.read_complete = False
         self.recv_buf = ""
         self.lines = []
 
     def expect(self, num_chars):
         self.recv_buf = ""
         self.remaining_chars = num_chars
+        self.read_complete = False
 
     def __call__(self):
         return self
@@ -88,6 +90,7 @@ class SerialReader(serial.threaded.Protocol):
 
         if self.remaining_chars <= 0:
             self.lines.append(self.recv_buf)
+            self.read_complete = True
 
     def get_expected_line(self):
         if len(self.lines):
@@ -129,7 +132,10 @@ class KA320:
     def rw(self, cmd, num_chars, exact=False):
         self.reader.expect(num_chars)
         self.ser.write(cmd)
-        time.sleep(0.1)
+        timeout = 10
+        while not self.reader.read_complete and not timeout == 0:
+            time.sleep(0.02)
+            timeout -= 1
         if exact:
             return self.reader.get_expected_line()
         return self.reader.get_line()
@@ -140,14 +146,14 @@ class KA320:
         return self.rw(b"*IDN?", 16)
 
     def get_max_voltage(self):
-        return float(self.rw(f"VSET{self.channel:d}?".encode(), 5))
+        return float(self.rw(f"VSET{self.channel:d}?".encode(), 5, True))
 
     def get_max_current(self):
         return float(self.rw(f"ISET{self.channel:d}?".encode(), 5, True))
 
     def get_voltage(self):
         try:
-            return float(self.rw(f"VOUT{self.channel:d}?".encode(), 5))
+            return float(self.rw(f"VOUT{self.channel:d}?".encode(), 5, True))
         except TypeError:
             return None
 
