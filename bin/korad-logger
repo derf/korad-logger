@@ -5,22 +5,27 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-"""kaxxxxp-viewer - Data Logger and Viewer for KAxxxxP power supplies
+"""korad-logger - Data Logger and Controller for Korad KAxxxxP power supplies
 
 DESCRIPTION
 
-kaxxxxp-viewer logs voltage and current readings provided by a KAxxxxP power supply
-with serial/USB interface, sold under brands such as Korad or RND Lab.
-Measurements can be taken directly (by specifying <measurement duration> in seconds)
-or loaded from a logfile using --load <file>. Data can be plotted or aggregated on stdout.
+korad-logger logs voltage and current readings provided by a KAxxxxP power
+supply with serial/USB interface, sold under brands such as Korad or RND Lab.
+It is also capable of performing simple control tasks, such as stepping through
+voltage/current slopes for automated I-V curve measurements.  Measurements can
+be taken directly (by specifying <measurement duration> in seconds) or loaded
+from a logfile using --load <file>. Data can be plotted or aggregated on stdout.
 
 WARNING
 
-The power supply's serial communication protocol is supports both read and write
-operations. Communication errors or bugs may cause the power supply to set an
-incompatible voltage or current limit, which may result in damaged equipment or
-fire. By using this software, you acknowledge that you are aware of these risks
-and the following disclaimer.
+The KAxxxxP serial interface supports both reading current/voltage
+data and writing current/voltage limits. korad-logger uses these to change
+PSU attributes at runtime, if requested. The serial protocol does not use
+checksums or similar mechanisms, so communication errors or bugs may cause the
+power supply to receive a write command with an arbitrary voltage or current
+value. This may result in damaged equipment, fire, or other harm. By using
+this software, you acknowledge that you are aware of these risks and the
+following disclaimer.
 
 This software is provided by the copyright holders and contributors "as is" and
 any express or implied warranties, including, but not limited to, the implied
