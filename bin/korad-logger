@@ -179,7 +179,7 @@ class KA320:
 
     # See <https://sigrok.org/wiki/Korad_KAxxxxP_series> for supported commands
 
-    def connect(self):
+    def get_id(self):
         # Device ID length is unknown
         return self.rw(b"*IDN?", 32, exact=False)
 
@@ -307,7 +307,7 @@ def measure_data(
     else:
         print(f"Starting data acquisition. Press Ctrl+C to stop.")
 
-    print("# Device: " + korad.connect(), file=output_handle)
+    print("# Device: " + korad.get_id(), file=output_handle)
     print("# Timestamp Voltage Current", file=output_handle)
     while not terminate_measurement:
         ts = time.time()
