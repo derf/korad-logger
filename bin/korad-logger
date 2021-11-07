@@ -321,7 +321,6 @@ def measure_data(
             print(f"{ts:.3f}   NaN {current:5.3f}", file=output_handle)
         else:
             print(f"{ts:.3f}   NaN   NaN", file=output_handle)
-        time.sleep(0.1)
 
         if int(ts - start_ts) > last_range_step:
             last_range_step = int(ts - start_ts)
