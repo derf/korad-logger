@@ -31,6 +31,24 @@ this software, you acknowledge that you are aware of these risks.
 
 See `bin/korad-logger --help` for usage details.
 
+## Examples
+
+Log voltage and current of a manually configured PSU whose output is already
+enabled. Press Ctrl+C to exit. You may also specify a timeout in seconds
+("0" means no timeout).
+
+```
+bin/korad-logger --save logfile 0
+```
+
+Generate an I-V curve for a power LED supporting up to 200mA and a voltage
+limit of 5V. The output is turned on at the start of the measurement and
+turned off at the end.
+
+```
+bin/kaxxxxp-viewer --voltage-limit 5 --current-range '0 0.2 0.001' --save led.log 210
+```
+
 ## Dependencies
 
 * Python 3 with the following modules: numpy, serial
