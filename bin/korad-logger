@@ -270,8 +270,6 @@ def measure_data(
     signal.signal(signal.SIGQUIT, graceful_exit)
     korad = KA320(port, channel)
 
-    start_ts = time.time()
-
     if filename is not None:
         output_handle = open(filename, "w+")
     else:
@@ -306,6 +304,8 @@ def measure_data(
         print(f"Logging data for {duration} seconds. Press Ctrl+C to stop early.")
     else:
         print(f"Starting data acquisition. Press Ctrl+C to stop.")
+
+    start_ts = time.time()
 
     print("# Device: " + korad.get_id(), file=output_handle)
     print("# Timestamp Voltage Current", file=output_handle)
@@ -351,6 +351,12 @@ def measure_data(
     output_handle.seek(0)
     output = output_handle.read()
     output_handle.close()
+
+    # exclude header
+    output_len = len(output.splitlines()) - 2
+    print(
+        f"Logged {output_len:d} samples in {ts - start_ts:.0f} seconds (mean sample rate: {output_len / (ts - start_ts) :.1f} Hz)"
+    )
 
     return output
 
