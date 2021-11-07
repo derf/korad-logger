@@ -253,6 +253,8 @@ def measure_data(
     voltage_range=(None, None, None),
     current_range=(None, None, None),
     on_off=False,
+    log_voltage=True,
+    log_current=True,
 ):
     global terminate_measurement
 
@@ -311,12 +313,18 @@ def measure_data(
     print("# Timestamp Voltage Current", file=output_handle)
     while not terminate_measurement:
         ts = time.time()
-        current = korad.get_current()
-        voltage = korad.get_voltage()
+        if log_current:
+            current = korad.get_current()
+        else:
+            current = None
+        if log_voltage:
+            voltage = korad.get_voltage()
+        else:
+            voltage = None
         if voltage is not None and current is not None:
             print(f"{ts:.3f} {voltage:5.2f} {current:5.3f}", file=output_handle)
         elif voltage is not None:
-            print(f"{ts:.3f}   {voltage:5.2f}   NaN", file=output_handle)
+            print(f"{ts:.3f} {voltage:5.2f}   NaN", file=output_handle)
         elif current is not None:
             print(f"{ts:.3f}   NaN {current:5.3f}", file=output_handle)
         else:
@@ -528,6 +536,11 @@ def main():
         help="Vary voltage limit from START to STOP over the course of the measurement. Adjust by STEP V per second.",
     )
     parser.add_argument(
+        "--voltage-only",
+        action="store_true",
+        help="Log voltage only (ignore current readings). Useful to increase sample rate for CC measurements.",
+    )
+    parser.add_argument(
         "--current-limit",
         type=float,
         help="Set current limit",
@@ -537,6 +550,11 @@ def main():
         type=str,
         metavar="START STOP STEP",
         help="Vary current limit from START to STOP over the course of the measurement. Adjust by STEP A per second.",
+    )
+    parser.add_argument(
+        "--current-only",
+        action="store_true",
+        help="Log current only (ignore current readings). Useful to increase sample rate for CV measurements.",
     )
     parser.add_argument(
         "--on-off",
@@ -600,6 +618,8 @@ def main():
             voltage_range=voltage_range,
             current_range=current_range,
             on_off=args.on_off,
+            log_voltage=not args.current_only,
+            log_current=not args.voltage_only,
         )
 
     data = parse_data(log_data, skip=args.skip, limit=args.limit)

@@ -12,7 +12,7 @@ through voltage/current slopes for automated I-V curve measurements.
 It has been successfully used with "RND 320-KA3005P" (single-channel) and "RND
 320-KA3305P" (dual-channel) supplies. Observed attributes:
 
-* Time resolution: **a few Hz**
+* Time resolution: 10 .. 24 Hz
 * Voltage range: 0 .. 30 V
 * Voltage resolution: 10 mV
 * Current range: 0 .. 5 A
