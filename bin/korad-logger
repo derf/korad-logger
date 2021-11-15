@@ -163,12 +163,15 @@ class KA320:
         self.worker = serial.threaded.ReaderThread(self.ser, self.reader)
         self.worker.start()
 
-    def rw(self, cmd, num_chars, exact=False, binary=False):
+    def rw(self, cmd, num_chars, exact=False, binary=False, plot=None):
         self.reader.expect(num_chars, binary=binary)
         self.ser.write(cmd)
         timeout = 20
         while not self.reader.read_complete and not timeout == 0:
-            time.sleep(0.02)
+            if plot is not None:
+                plot.pause(0.02)
+            else:
+                time.sleep(0.02)
             timeout -= 1
         if exact:
             return self.reader.get_expected_line()
@@ -212,15 +215,15 @@ class KA320:
     def get_max_current(self):
         return float(self.rw(f"ISET{self.channel:d}?".encode(), 5, True))
 
-    def get_voltage(self):
+    def get_voltage(self, plot=None):
         try:
-            return float(self.rw(f"VOUT{self.channel:d}?".encode(), 5, True))
+            return float(self.rw(f"VOUT{self.channel:d}?".encode(), 5, True, plot=plot))
         except TypeError:
             return None
 
-    def get_current(self):
+    def get_current(self, plot=None):
         try:
-            return float(self.rw(f"IOUT{self.channel:d}?".encode(), 5, True))
+            return float(self.rw(f"IOUT{self.channel:d}?".encode(), 5, True, plot=plot))
         except TypeError:
             return None
 
@@ -255,8 +258,12 @@ def measure_data(
     on_off=False,
     log_voltage=True,
     log_current=True,
+    live_view=False,
+    live_history=0,
 ):
     global terminate_measurement
+
+    plot = None
 
     voltage_start, voltage_stop, voltage_step = voltage_range
     current_start, current_stop, current_step = current_range
@@ -298,6 +305,33 @@ def measure_data(
         print("Enabling over-current protection")
         korad.ocp(True)
 
+    if live_view:
+        import matplotlib.pyplot as plt
+
+        plt.style.use("dark_background")
+
+        timestamps = list()
+        voltages = list()
+        currents = list()
+        max_y = 0
+        plt.ion()
+        if log_current:
+            (currentline,) = plt.plot(
+                timestamps, currents, "r-", label="Current [A]", markersize=1
+            )
+            plt.ylabel("Current [A]")
+        if log_voltage:
+            (voltageline,) = plt.plot(
+                timestamps, voltages, "b-", label="Voltage [V]", markersize=1
+            )
+            plt.ylabel("Voltage [V]")
+        if log_current and log_voltage:
+            plt.legend(handles=[voltageline, currentline])
+            plt.ylabel("")
+        plt.xlabel("Time [s]")
+        plt.show()
+        plot = plt
+
     if max_voltage is not None or max_current is not None or on_off:
         print("Turning on outputs")
         korad.set_output(True)
@@ -314,13 +348,34 @@ def measure_data(
     while not terminate_measurement:
         ts = time.time()
         if log_current:
-            current = korad.get_current()
+            current = korad.get_current(plot)
         else:
             current = None
         if log_voltage:
-            voltage = korad.get_voltage()
+            voltage = korad.get_voltage(plot)
         else:
             voltage = None
+        if live_view:
+            timestamps.append(ts - start_ts)
+            voltages.append(voltage)
+            currents.append(current)
+            if live_history:
+                timestamps = timestamps[-live_history:]
+                voltages = voltages[-live_history:]
+                currents = currents[-live_history:]
+            if len(timestamps) > 1:
+                plt.xlim([timestamps[0], timestamps[-1]])
+            if log_voltage:
+                voltageline.set_data([timestamps, voltages])
+            if log_current:
+                currentline.set_data([timestamps, currents])
+            if log_current and current is not None and current > max_y:
+                max_y = current
+                plt.ylim([0, max_y + 0.1])
+            if log_voltage and voltage is not None and voltage > max_y:
+                max_y = voltage
+                plt.ylim([0, max_y + 0.1])
+            plt.show()
         if voltage is not None and current is not None:
             print(f"{ts:.3f} {voltage:5.2f} {current:5.3f}", file=output_handle)
         elif voltage is not None:
@@ -578,6 +633,18 @@ def main():
         help="Limit analysis to the first N seconds of data",
     )
     parser.add_argument(
+        "--live-view",
+        action="store_true",
+        help="Plot live voltage/current data while the measurement is running. May decreases the sample rate.",
+    )
+    parser.add_argument(
+        "--live-history",
+        type=int,
+        metavar="N",
+        default=300,
+        help="Show up to N past samples in the live view. Less history → lower live view overhead → higher sample rate. Set to 0 for unlimited history.",
+    )
+    parser.add_argument(
         "--plot",
         metavar="UNIT",
         choices=["U", "I", "P", "UI", "UP", "IU", "IP"],
@@ -620,6 +687,8 @@ def main():
             on_off=args.on_off,
             log_voltage=not args.current_only,
             log_current=not args.voltage_only,
+            live_view=args.live_view,
+            live_history=args.live_history,
         )
 
     data = parse_data(log_data, skip=args.skip, limit=args.limit)
