@@ -52,6 +52,8 @@ import time
 
 terminate_measurement = False
 
+matplotlib_theme = "fast"
+
 
 def running_mean(x: np.ndarray, N: int) -> np.ndarray:
     """
@@ -308,7 +310,7 @@ def measure_data(
     if live_view:
         import matplotlib.pyplot as plt
 
-        plt.style.use("dark_background")
+        plt.style.use(matplotlib_theme)
 
         timestamps = list()
         voltages = list()
@@ -426,6 +428,8 @@ def measure_data(
 
 def plot_data(data, mode):
     import matplotlib.pyplot as plt
+
+    plt.style.use(matplotlib_theme)
 
     if mode == "U":
         (datahandle,) = plt.plot(data[:, 0], data[:, 1], "b-", label="U", markersize=1)
@@ -651,6 +655,9 @@ def main():
         help="Plot voltage / current / power over time or voltage vs current / current vs voltage",
     )
     parser.add_argument(
+        "--dark-mode", action="store_true", help="Show plots on a dark background"
+    )
+    parser.add_argument(
         "duration", type=int, nargs="?", help="Measurement duration in seconds"
     )
 
@@ -659,6 +666,10 @@ def main():
     if args.load is None and args.duration is None:
         print("Either --load or duration must be specified", file=sys.stderr)
         sys.exit(1)
+
+    if args.dark_mode:
+        global matplotlib_theme
+        matplotlib_theme = "dark_background"
 
     current_range = parse_range(args.current_range)
     voltage_range = parse_range(args.voltage_range)
