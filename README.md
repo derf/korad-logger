@@ -7,7 +7,8 @@ low-resolution measurement devices. See the [sigrok
 wiki](https://sigrok.org/wiki/Korad_KAxxxxP_series) for details.
 
 korad-logger is capable of performing simple control tasks, such as stepping
-through voltage/current slopes for automated I-V curve measurements.
+through voltage/current slopes for automated I-V curve measurements, and
+displaying live data.
 
 It has been successfully used with "RND 320-KA3005P" (single-channel) and "RND
 320-KA3305P" (dual-channel) supplies, and should work with similar variants as
