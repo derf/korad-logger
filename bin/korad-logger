@@ -343,10 +343,11 @@ def measure_data(
     else:
         print(f"Starting data acquisition. Press Ctrl+C to stop.")
 
-    start_ts = time.time()
-
     print("# Device: " + korad.get_id(), file=output_handle)
-    print("# Timestamp Voltage Current", file=output_handle)
+    print(f"# Vmax: {korad.get_max_voltage():5.2f}", file=output_handle)
+    print(f"# Imax: {korad.get_max_current():5.3f}", file=output_handle)
+    print("# Timestamp[s] Voltage[V] Current[A]", file=output_handle)
+    start_ts = time.time()
     while not terminate_measurement:
         ts = time.time()
         if log_current:
