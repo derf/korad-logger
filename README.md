@@ -14,7 +14,7 @@ It has been successfully used with "RND 320-KA3005P" (single-channel) and "RND
 320-KA3305P" (dual-channel) supplies, and should work with similar variants as
 well. Observed attributes:
 
-* Time resolution: 10 .. 24 Hz
+* Time resolution: ~3 Hz internal, 10 .. 24 Hz via USB
 * Voltage range: 0 .. 30 V
 * Voltage resolution: 10 mV
 * Current range: 0 .. 5 A
