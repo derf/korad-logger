@@ -220,13 +220,13 @@ class KA320:
     def get_voltage(self, plot=None):
         try:
             return float(self.rw(f"VOUT{self.channel:d}?".encode(), 5, True, plot=plot))
-        except TypeError:
+        except (TypeError, ValueError):
             return None
 
     def get_current(self, plot=None):
         try:
             return float(self.rw(f"IOUT{self.channel:d}?".encode(), 5, True, plot=plot))
-        except TypeError:
+        except (TypeError, ValueError):
             return None
 
     def set_output(self, enable):
