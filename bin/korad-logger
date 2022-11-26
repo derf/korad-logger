@@ -258,6 +258,7 @@ def measure_data(
     voltage_range=(None, None, None),
     current_range=(None, None, None),
     on_off=False,
+    step_time=1,
     log_voltage=True,
     log_current=True,
     live_view=False,
@@ -388,10 +389,12 @@ def measure_data(
         else:
             print(f"{ts:.3f}   NaN   NaN", file=output_handle)
 
-        if int(ts - start_ts) > last_range_step:
+        if int(ts - start_ts) > last_range_step + (step_time - 1):
             last_range_step = int(ts - start_ts)
             if voltage_step:
-                max_voltage = voltage_start + last_range_step * voltage_step
+                max_voltage = (
+                    voltage_start + (last_range_step // step_time) * voltage_step
+                )
                 if (voltage_step > 0 and max_voltage <= voltage_stop) or (
                     voltage_step < 0 and max_voltage >= voltage_stop
                 ):
@@ -622,6 +625,13 @@ def main():
         help="Enable output after starting the measurement; disable it after stopping it",
     )
     parser.add_argument(
+        "--step-time",
+        type=int,
+        default=1,
+        metavar="SECONDS",
+        help="Wait SECONDS between steps",
+    )
+    parser.add_argument(
         "--save", metavar="FILE", type=str, help="Save measurement data in FILE"
     )
     parser.add_argument(
@@ -697,6 +707,7 @@ def main():
             voltage_range=voltage_range,
             current_range=current_range,
             on_off=args.on_off,
+            step_time=args.step_time,
             log_voltage=not args.current_only,
             log_current=not args.voltage_only,
             live_view=args.live_view,
