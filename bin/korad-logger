@@ -344,10 +344,19 @@ def measure_data(
     else:
         print(f"Starting data acquisition. Press Ctrl+C to stop.")
 
+    max_voltage_now = korad.get_max_voltage()
+    max_current_now = korad.get_max_current()
+
     print("# Device: " + korad.get_id(), file=output_handle)
-    print(f"# Vmax: {korad.get_max_voltage():5.2f}", file=output_handle)
-    print(f"# Imax: {korad.get_max_current():5.3f}", file=output_handle)
-    print("# Timestamp[s] Voltage[V] Current[A]", file=output_handle)
+    print(f"# Vmax: {max_voltage_now:5.2f}", file=output_handle)
+    print(f"# Imax: {max_current_now:5.3f}", file=output_handle)
+    if voltage_step or current_step:
+        print(
+            "# Timestamp[s] Voltage[V] Current[A] MaxVoltage[V] MaxCurrent[A]",
+            file=output_handle,
+        )
+    else:
+        print("# Timestamp[s] Voltage[V] Current[A]", file=output_handle)
     start_ts = time.time()
     while not terminate_measurement:
         ts = time.time()
@@ -380,14 +389,22 @@ def measure_data(
                 max_y = voltage
                 plt.ylim([0, max_y + 0.1])
             plt.show()
-        if voltage is not None and current is not None:
-            print(f"{ts:.3f} {voltage:5.2f} {current:5.3f}", file=output_handle)
-        elif voltage is not None:
-            print(f"{ts:.3f} {voltage:5.2f}   NaN", file=output_handle)
-        elif current is not None:
-            print(f"{ts:.3f}   NaN {current:5.3f}", file=output_handle)
+
+        if voltage_step or current_step:
+            suffix = f" {max_voltage_now:5.2f} {max_current_now:5.3f}"
         else:
-            print(f"{ts:.3f}   NaN   NaN", file=output_handle)
+            suffix = ""
+
+        if voltage is not None and current is not None:
+            print(
+                f"{ts:.3f} {voltage:5.2f} {current:5.3f}{suffix:s}", file=output_handle
+            )
+        elif voltage is not None:
+            print(f"{ts:.3f} {voltage:5.2f}   NaN{suffix:s}", file=output_handle)
+        elif current is not None:
+            print(f"{ts:.3f}   NaN {current:5.3f}{suffix:s}", file=output_handle)
+        else:
+            print(f"{ts:.3f}   NaN   NaN{suffix:s}", file=output_handle)
 
         if int(ts - start_ts) > last_range_step + (step_time - 1):
             last_range_step = int(ts - start_ts)
@@ -400,13 +417,17 @@ def measure_data(
                 ):
                     print(f"Setting voltage limit to {max_voltage:5.2f} V")
                     korad.set_max_voltage(max_voltage)
+                    max_voltage_now = max_voltage
             if current_step:
-                max_current = current_start + last_range_step * current_step
+                max_current = (
+                    current_start + (last_range_step // step_time) * current_step
+                )
                 if (current_step > 0 and max_current <= current_stop) or (
                     current_step < 0 and max_current >= current_stop
                 ):
                     print(f"Setting current limit to {max_current:5.3f} A")
                     korad.set_max_current(max_current)
+                    max_current_now = max_current
 
         if duration and ts - start_ts > duration:
             terminate_measurement = True
@@ -512,6 +533,8 @@ def parse_data(log_data, skip=None, limit=None):
         fields = line.split()
         if len(fields) == 3:
             timestamp, voltage, current = map(float, fields)
+        elif len(fields) == 5:
+            timestamp, voltage, current, max_voltage, max_current = map(float, fields)
         else:
             raise RuntimeError('cannot parse line "{}"'.format(line))
 
