@@ -451,7 +451,7 @@ def measure_data(
     return output
 
 
-def plot_data(data, mode):
+def plot_data(data, mode, output_power=None):
     import matplotlib.pyplot as plt
 
     plt.style.use(matplotlib_theme)
@@ -516,6 +516,26 @@ def plot_data(data, mode):
         plt.plot(data[:, 2], data[:, 1] * data[:, 2], "bs", markersize=2)
         plt.xlabel("Current [A]")
         plt.ylabel("Power [W]")
+
+    elif mode == "Up" and output_power:
+        plt.plot(
+            data[:, 1],
+            output_power * 100 / (data[:, 1] * data[:, 2]),
+            "bs",
+            markersize=2,
+        )
+        plt.xlabel("Voltage [V]")
+        plt.ylabel("Conversion Efficiency [%]")
+
+    elif mode == "Ip" and output_power:
+        plt.plot(
+            data[:, 2],
+            output_power * 100 / (data[:, 1] * data[:, 2]),
+            "bs",
+            markersize=2,
+        )
+        plt.xlabel("Current [A]")
+        plt.ylabel("Conversion Efficiency [%]")
 
     plt.show()
 
@@ -685,8 +705,14 @@ def main():
     parser.add_argument(
         "--plot",
         metavar="UNIT",
-        choices=["U", "I", "P", "UI", "UP", "IU", "IP"],
+        choices=["U", "I", "P", "UI", "UP", "Up", "IU", "IP", "Ip"],
         help="Plot voltage / current / power over time or voltage vs current / current vs voltage",
+    )
+    parser.add_argument(
+        "--converter-output-power",
+        type=int,
+        metavar="WATTS",
+        help="Output power for conversion efficiency calculation (--plot=Up / --plot=Ip)",
     )
     parser.add_argument(
         "--dark-mode", action="store_true", help="Show plots on a dark background"
@@ -740,7 +766,7 @@ def main():
     data = parse_data(log_data, skip=args.skip, limit=args.limit)
 
     if args.plot:
-        plot_data(data, args.plot)
+        plot_data(data, args.plot, args.converter_output_power)
 
 
 if __name__ == "__main__":
