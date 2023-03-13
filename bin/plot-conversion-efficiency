@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+# vim:tabstop=4 softtabstop=4 shiftwidth=4 textwidth=160 smarttab expandtab colorcolumn=160
+#
+# Copyright (C) 2023 Daniel Friesel
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+"""plot-conversion-efficiency - Show several conversion efficiency plots at once
+
+DESCRIPTION
+
+fixme
+
+OPTIONS
+"""
+
+import argparse
+import bisect
+import numpy as np
+from matplotlib import cm
+import matplotlib.pyplot as plt
+
+matplotlib_theme = "fast"
+
+
+def neighbouring_avg(data, timestamp, eps=0.1):
+    samples = list()
+    range_left = bisect.bisect_left(data[:, 0], timestamp - eps)
+    range_right = bisect.bisect_right(data[:, 0], timestamp + eps)
+    samples = data[range_left:range_right, 1]
+    if not len(samples):
+        return None
+    return np.mean(samples)
+
+
+def load_korad(filename, skip=None, limit=None):
+    if filename.endswith(".xz"):
+        import lzma
+
+        with lzma.open(filename, "rt") as f:
+            log_data = f.read()
+    else:
+        with open(filename, "r") as f:
+            log_data = f.read()
+    lines = log_data.split("\n")
+    data_count = sum(map(lambda x: len(x) > 0 and x[0] != "#", lines))
+    data_lines = filter(lambda x: len(x) > 0 and x[0] != "#", lines)
+
+    data = np.empty((data_count, 3))
+    skip_index = 0
+    limit_index = data_count
+
+    for i, line in enumerate(data_lines):
+        fields = line.split()
+        if len(fields) == 3:
+            timestamp, voltage, current = map(float, fields)
+        elif len(fields) == 5:
+            timestamp, voltage, current, max_voltage, max_current = map(float, fields)
+        else:
+            raise RuntimeError('cannot parse line "{}"'.format(line))
+
+        if i == 0:
+            first_timestamp = timestamp
+
+        timestamp = timestamp - first_timestamp
+
+        if skip is not None and timestamp < skip:
+            skip_index = i + 1
+            continue
+
+        if limit is not None and timestamp > limit:
+            limit_index = i - 1
+            break
+
+        data[i] = [timestamp, current, voltage]
+
+    data = data[skip_index:limit_index]
+
+    return data
+
+
+def load_ads1115(filename, in_channel, out_channel):
+    readings = list()
+    first_timestamp = None
+    with open(filename, "r") as f:
+        for line in f:
+            if line.startswith("#"):
+                continue
+            timestamp, channel, voltage = line.split()
+            timestamp = float(timestamp)
+            channel = int(channel)
+            voltage = float(voltage)
+            if abs(voltage) > 1:
+                if first_timestamp is None:
+                    first_timestamp = timestamp
+                timestamp -= first_timestamp
+                readings.append((timestamp, channel, voltage))
+    vin_t = list()
+    vout_t = list()
+    vout_vin = list()
+
+    last_vin = None
+    last_vout = None
+    for timestamp, channel, voltage in readings:
+        if channel == in_channel:
+            vin_t.append((timestamp, voltage))
+            if last_vin is not None and last_vout is not None:
+                vout_vin.append((np.mean((last_vin, voltage)), last_vout))
+            last_vin = voltage
+        elif channel == out_channel:
+            vout_t.append((timestamp, voltage))
+            if last_vin is not None and last_vout is not None:
+                vout_vin.append((last_vin, np.mean((last_vout, voltage))))
+            last_vout = voltage
+
+    return np.array(vin_t), np.array(vout_t), np.array(vout_vin)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
+    )
+    parser.add_argument(
+        "--skip",
+        metavar="N",
+        type=float,
+        default=0,
+        help="Skip the first N seconds of data. This is useful to avoid startup code influencing the results of a long-running measurement",
+    )
+    parser.add_argument(
+        "--limit",
+        type=float,
+        metavar="N",
+        help="Limit analysis to the first N seconds of data",
+    )
+    parser.add_argument(
+        "--in-channel",
+        metavar="CHANNEL",
+        type=int,
+        default=0,
+        help="ADS1115 input channel",
+    )
+    parser.add_argument(
+        "--out-channel",
+        metavar="CHANNEL",
+        type=int,
+        default=2,
+        help="ADS1115 output channel",
+    )
+    parser.add_argument(
+        "--dark-mode", action="store_true", help="Show plots on a dark background"
+    )
+    parser.add_argument("--title", type=str, help="Plot title")
+    parser.add_argument(
+        "files",
+        type=str,
+        nargs="+",
+        help="Pairs of <current[A]>:<korad filename>:<ads1115 filename>",
+    )
+
+    args = parser.parse_args()
+
+    if args.dark_mode:
+        global matplotlib_theme
+        matplotlib_theme = "dark_background"
+
+    cmap = cm.get_cmap("winter")
+    handles = list()
+    for i, pair in enumerate(args.files):
+        out_current, korad_file, ads1115_file = pair.split(":")
+        out_current = float(out_current)
+        iin_t = load_korad(korad_file, args.skip, args.limit)
+        vin_t, vout_t, vout_vin = load_ads1115(
+            ads1115_file, args.in_channel, args.out_channel
+        )
+
+        voltage_in = list()
+        power_in = list()
+        power_out = list()
+
+        for timestamp, in_current, in_voltage in iin_t:
+            v_in = neighbouring_avg(vin_t, timestamp)
+            v_out = neighbouring_avg(vout_t, timestamp)
+
+            if v_in is None or v_out is None:
+                continue
+
+            voltage_in.append(v_in)
+            power_in.append(v_in * in_current)
+            power_out.append(v_out * out_current)
+
+        voltage_in = np.array(voltage_in)
+        power_in = np.array(power_in)
+        power_out = np.array(power_out)
+
+        (handle,) = plt.plot(
+            voltage_in,
+            power_out / power_in,
+            linestyle="none",
+            marker="s",
+            color=cmap(i / len(args.files)),
+            markersize=2,
+            label=f"{out_current:0.2f} A",
+        )
+        handles.append(handle)
+
+    plt.legend(handles=handles, title="Output Current")
+    if args.title:
+        plt.title(args.title)
+    plt.xlabel("Input Voltage [V]")
+    plt.ylabel("Conversion Efficiency [%]")
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
