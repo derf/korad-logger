@@ -1,6 +1,6 @@
 # korad-logger - Data Logger and Controller for KAxxxxP power supplies
 
-**korad-logger** acquires and visualizes voltage and current data from
+[**korad-logger**](https://finalrewind.org/projects/korad-logger/) acquires and visualizes voltage and current data from
 KAxxxxP power supplies. These are sold under brand names such as Korad or RND
 Lab and equipped with a USB serial port, allowing them to be used as simple,
 low-resolution measurement devices. See the [sigrok
